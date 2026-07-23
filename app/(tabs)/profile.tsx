@@ -16,6 +16,7 @@ import * as Notifications from 'expo-notifications';
 import { Colors } from '@/constants/colors';
 import { useHairProfile } from '@/context/HairProfileContext';
 import { useAuth } from '@/context/AuthContext';
+import { ExternalLink } from '@/components/ExternalLink';
 import * as tracking from '@/services/tracking';
 import { track } from '@/services/analytics';
 import { QUESTIONS } from '@/constants/questions';
@@ -23,6 +24,7 @@ import { Question, WashSchedule, GoalCheckIn } from '@/types';
 
 const CHECKIN_INTERVAL_DAYS = 7;
 const FREQUENCY_OPTIONS = [5, 7, 10, 14];
+const FEEDBACK_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfihljNcYgTndO5AkmDV-lkRNU4R8kHi3B4Qp38aBtOFWMHxA/viewform';
 
 const ANSWER_DISPLAY: Record<string, Record<string, string>> = {
   porosity: { high_porosity: 'High porosity', medium_porosity: 'Medium porosity', low_porosity: 'Low porosity' },
@@ -509,6 +511,10 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={() => router.push('/legal?doc=privacy')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.legalLink}>Privacy Policy</Text>
           </TouchableOpacity>
+          <Text style={styles.legalDot}>·</Text>
+          <ExternalLink href={FEEDBACK_URL}>
+            <Text style={styles.legalLink}>Feedback</Text>
+          </ExternalLink>
         </View>
       </ScrollView>
 
@@ -787,7 +793,7 @@ const styles = StyleSheet.create({
   },
   devResetText: { color: Colors.error, fontSize: 12, fontWeight: '600' },
 
-  legalFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 },
+  legalFooter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 },
   legalLink: { fontSize: 12, color: Colors.primaryMedium, fontWeight: '600' },
   legalDot: { fontSize: 12, color: Colors.primaryLight },
 });
