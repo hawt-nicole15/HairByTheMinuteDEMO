@@ -6,6 +6,8 @@ import {
   UserAnswers,
   AccountInfo,
 } from '@/types';
+import { supabase } from '@/services/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 const STORAGE_KEY = 'hbtm_hair_profile';
 
@@ -20,7 +22,7 @@ const HairProfileContext = createContext<HairProfileContextType>({
   isLoaded: false,
   setQuestionnaireAnswers: () => {},
   setHairGoals: () => {},
-  completeOnboarding: () => {},
+  completeOnboarding: async () => {},
   clearProfile: async () => {},
 });
 
@@ -33,9 +35,12 @@ async function persist(data: HairProfileData) {
 }
 
 export function HairProfileProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
   const [profile, setProfile] = useState<HairProfileData>(defaultProfile);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Local cache load — allows the onboarding questionnaire to work before an
+  // account exists (pre-auth), and gives an offline snapshot afterwards.
   useEffect(() => {
     (async () => {
       try {
@@ -49,20 +54,74 @@ export function HairProfileProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const updateProfile = (patch: Partial<HairProfileData>) => {
+  // When a session appears (login on this or another device), hydrate the
+  // authoritative profile from the database.
+  useEffect(() => {
+    if (!session) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, email, questionnaire_answers, hair_goals, is_onboarded')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      if (data && data.is_onboarded) {
+        const hydrated: HairProfileData = {
+          questionnaireAnswers: (data.questionnaire_answers as UserAnswers) ?? {},
+          hairGoals: (data.hair_goals as string[]) ?? [],
+          isOnboarded: true,
+          accountInfo: {
+            firstName: data.first_name ?? '',
+            lastName: data.last_name ?? '',
+            email: data.email ?? '',
+          },
+        };
+        setProfile(hydrated);
+        persist(hydrated);
+      }
+    })();
+  }, [session?.user.id]);
+
+  // Writes the profile to Postgres when a user is authenticated. Reads the
+  // session fresh from the Supabase client (not React state) so it works even
+  // immediately after signUp, before onAuthStateChange has propagated.
+  const persistToDb = async (data: HairProfileData) => {
+    const { data: { session: s } } = await supabase.auth.getSession();
+    if (!s) return; // pre-auth onboarding — local cache only
+    await supabase
+      .from('profiles')
+      .update({
+        first_name: data.accountInfo?.firstName ?? null,
+        last_name: data.accountInfo?.lastName ?? null,
+        questionnaire_answers: data.questionnaireAnswers,
+        hair_goals: data.hairGoals,
+        is_onboarded: data.isOnboarded,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', s.user.id);
+  };
+
+  const updateLocal = (patch: Partial<HairProfileData>): HairProfileData => {
     const next = { ...profile, ...patch };
     persist(next);
     setProfile(next);
+    return next;
   };
 
-  const setQuestionnaireAnswers = (answers: UserAnswers) =>
-    updateProfile({ questionnaireAnswers: answers });
+  const setQuestionnaireAnswers = (answers: UserAnswers) => {
+    const next = updateLocal({ questionnaireAnswers: answers });
+    void persistToDb(next);
+  };
 
-  const setHairGoals = (goals: string[]) =>
-    updateProfile({ hairGoals: goals });
+  const setHairGoals = (goals: string[]) => {
+    const next = updateLocal({ hairGoals: goals });
+    void persistToDb(next);
+  };
 
-  const completeOnboarding = (accountInfo: AccountInfo) =>
-    updateProfile({ isOnboarded: true, accountInfo });
+  // Called at the end of signup — writes the full profile to the database.
+  const completeOnboarding = async (accountInfo: AccountInfo) => {
+    const next = updateLocal({ isOnboarded: true, accountInfo });
+    await persistToDb(next);
+  };
 
   const clearProfile = async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
@@ -80,66 +139,4 @@ export function HairProfileProvider({ children }: { children: ReactNode }) {
 
 export function useHairProfile() {
   return useContext(HairProfileContext);
-}
-
-const ANSWER_LABELS: Record<string, Record<string, string>> = {
-  porosity: {
-    high_porosity: 'High porosity (absorbs quickly)',
-    medium_porosity: 'Medium porosity',
-    low_porosity: 'Low porosity (products sit on top)',
-  },
-  elasticity: {
-    low_elasticity: 'Low elasticity (snaps immediately)',
-    good_elasticity: 'Good elasticity (stretches and bounces back)',
-    damaged_elasticity: 'Damaged elasticity (stretches but stays limp)',
-  },
-  thickness: {
-    fine: 'Fine strands',
-    medium: 'Medium strands',
-    coarse: 'Coarse strands',
-  },
-  curl_pattern: {
-    type_3: 'Type 3 — soft S-shaped coils',
-    type_4ab: 'Type 4A/4B — tight Z-coils',
-    type_4c: 'Type 4C — dense, minimal definition',
-  },
-  styling_goal: {
-    wash_and_go: 'Defined wash-and-gos',
-    twist_braid_out: 'Twist-outs or braid-outs',
-    stretched: 'Stretched styles (blowouts, banding)',
-    protective: 'Protective styles (braids, wigs, weaves)',
-  },
-  scalp: {
-    dry_scalp: 'Dry and flaky scalp',
-    oily_scalp: 'Oily scalp',
-    balanced_scalp: 'Balanced scalp',
-    sensitive_scalp: 'Sensitive/easily irritated scalp',
-  },
-};
-
-const GOAL_LABELS: Record<string, string> = {
-  moisture: 'Moisture & Hydration',
-  growth: 'Healthy Growth',
-  curl_definition: 'Curl Definition',
-  protective_maintenance: 'Protective Style Maintenance',
-  strength: 'Strength & Breakage Reduction',
-  scalp_health: 'Scalp Health',
-};
-
-export function buildGeminiPrompt(profile: HairProfileData): string {
-  const { questionnaireAnswers, hairGoals, accountInfo } = profile;
-
-  const lines = [
-    'USER HAIR PROFILE:',
-    accountInfo ? `- Name: ${accountInfo.firstName} ${accountInfo.lastName}` : null,
-    `- Porosity: ${ANSWER_LABELS.porosity[questionnaireAnswers.porosity] ?? 'Not answered'}`,
-    `- Elasticity: ${ANSWER_LABELS.elasticity[questionnaireAnswers.elasticity] ?? 'Not answered'}`,
-    `- Strand thickness: ${ANSWER_LABELS.thickness[questionnaireAnswers.thickness] ?? 'Not answered'}`,
-    `- Curl pattern: ${ANSWER_LABELS.curl_pattern[questionnaireAnswers.curl_pattern] ?? 'Not answered'}`,
-    `- Preferred style: ${ANSWER_LABELS.styling_goal[questionnaireAnswers.styling_goal] ?? 'Not answered'}`,
-    `- Scalp type: ${ANSWER_LABELS.scalp[questionnaireAnswers.scalp] ?? 'Not answered'}`,
-    `- Hair goals: ${hairGoals.map((g) => GOAL_LABELS[g] ?? g).join(', ') || 'None selected'}`,
-  ].filter((l): l is string => l !== null);
-
-  return lines.join('\n');
 }

@@ -18,19 +18,13 @@ if (Platform.OS === 'android') {
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useHairProfile } from '@/context/HairProfileContext';
 import { generateHairRoutine } from '@/services/gemini';
+import * as tracking from '@/services/tracking';
 import { track } from '@/services/analytics';
 import { HairRoutine, RoutineStep, WeeklyTreatment, ProductRecommendation, WashSchedule, DailyLog, TreatmentEntry } from '@/types';
-
-const ROUTINE_CACHE_KEY = 'hbtm_routine';
-const WASH_SCHEDULE_KEY = 'hbtm_wash_schedule';
-const DAILY_LOG_KEY = 'hbtm_daily_log';
-const TREATMENT_HISTORY_KEY = 'hbtm_treatment_history';
-const PRODUCT_USAGE_KEY = 'hbtm_product_usage';
 
 const TODAY = new Date().toISOString().split('T')[0];
 
@@ -219,22 +213,18 @@ export default function HomeScreen() {
       (async () => {
         try {
           const [cached, ws, dl, th, pu] = await Promise.all([
-            AsyncStorage.getItem(ROUTINE_CACHE_KEY),
-            AsyncStorage.getItem(WASH_SCHEDULE_KEY),
-            AsyncStorage.getItem(DAILY_LOG_KEY),
-            AsyncStorage.getItem(TREATMENT_HISTORY_KEY),
-            AsyncStorage.getItem(PRODUCT_USAGE_KEY),
+            tracking.getRoutine(),
+            tracking.getWashSchedule(),
+            tracking.getDailyLog(TODAY),
+            tracking.getTreatmentHistory(),
+            tracking.getProductUsage(),
           ]);
-          if (cached) setRoutine(JSON.parse(cached));
-          if (ws) setWashSchedule(JSON.parse(ws));
-          if (th) setTreatmentHistory(JSON.parse(th));
-          if (pu) setUsedProducts(new Set(JSON.parse(pu)));
-
-          // Reset daily log if it's a new day
-          if (dl) {
-            const parsed: DailyLog = JSON.parse(dl);
-            setDailyLog(parsed.date === TODAY ? parsed : { date: TODAY, completedSteps: [], completedTreatments: [], washedToday: false });
-          }
+          if (cached) setRoutine(cached);
+          if (ws) setWashSchedule(ws);
+          setTreatmentHistory(th);
+          setUsedProducts(new Set(pu));
+          // getDailyLog is keyed to TODAY, so it's already day-scoped
+          setDailyLog(dl ?? { date: TODAY, completedSteps: [], completedTreatments: [], washedToday: false });
         } catch { /* ignore */ }
       })();
     }, [])
@@ -242,7 +232,7 @@ export default function HomeScreen() {
 
   const saveDailyLog = async (updated: DailyLog) => {
     setDailyLog(updated);
-    await AsyncStorage.setItem(DAILY_LOG_KEY, JSON.stringify(updated));
+    await tracking.saveDailyLog(updated);
   };
 
   const toggleDailyStep = (stepName: string) => {
@@ -260,19 +250,9 @@ export default function HomeScreen() {
     saveDailyLog(updated);
     track('treatment_marked_done', { treatment: treatmentName });
 
-    // Persist to history for Cassi context
-    const lastEntry = treatmentHistory[treatmentHistory.length - 1];
-    let newHistory: TreatmentEntry[];
-    if (lastEntry?.date === TODAY) {
-      newHistory = [
-        ...treatmentHistory.slice(0, -1),
-        { date: TODAY, names: [...new Set([...lastEntry.names, treatmentName])] },
-      ];
-    } else {
-      newHistory = [...treatmentHistory, { date: TODAY, names: [treatmentName] }];
-    }
-    setTreatmentHistory(newHistory);
-    await AsyncStorage.setItem(TREATMENT_HISTORY_KEY, JSON.stringify(newHistory));
+    // Persist to history for Cassi context, then refresh from the source of truth
+    await tracking.recordTreatment(TODAY, treatmentName);
+    setTreatmentHistory(await tracking.getTreatmentHistory());
   };
 
   const confirmWashDay = () => {
@@ -289,7 +269,7 @@ export default function HomeScreen() {
             if (washSchedule) {
               const updated = { ...washSchedule, lastWashDate: TODAY };
               setWashSchedule(updated);
-              await AsyncStorage.setItem(WASH_SCHEDULE_KEY, JSON.stringify(updated));
+              await tracking.saveWashSchedule(updated);
             }
           },
         },
@@ -302,7 +282,7 @@ export default function HomeScreen() {
     const next = new Set(usedProducts);
     adding ? next.add(productName) : next.delete(productName);
     setUsedProducts(next);
-    await AsyncStorage.setItem(PRODUCT_USAGE_KEY, JSON.stringify(Array.from(next)));
+    await tracking.saveProductUsage(Array.from(next));
     track('product_toggled', { product: productName, using: adding });
   };
 
@@ -310,8 +290,8 @@ export default function HomeScreen() {
     setLoading(true);
     setError(null);
     try {
-      const result = await generateHairRoutine(profile);
-      await AsyncStorage.setItem(ROUTINE_CACHE_KEY, JSON.stringify(result));
+      // The edge function saves the routine to the DB; we just use what it returns.
+      const result = await generateHairRoutine();
       setRoutine(result);
       track('routine_generated');
     } catch (e) {
@@ -322,7 +302,6 @@ export default function HomeScreen() {
   };
 
   const handleRefresh = async () => {
-    await AsyncStorage.removeItem(ROUTINE_CACHE_KEY);
     setRoutine(null);
     handleGenerate();
   };

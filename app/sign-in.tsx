@@ -14,15 +14,33 @@ import { Colors } from '@/constants/colors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BackButton } from '@/components/ui/BackButton';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handleSignIn = () => {
-    // Auth skipped for development — navigate directly to home
-    router.replace('/(tabs)');
+  const handleSignIn = async () => {
+    if (busy) return;
+    setError('');
+    if (!email.trim() || !password) {
+      setError('Enter your email and password.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await signIn(email, password);
+      // The root guard routes approved users into the app.
+      router.replace('/');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sign in failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -66,20 +84,25 @@ export default function SignInScreen() {
               isPassword
             />
 
-            <TouchableOpacity style={styles.forgotRow}>
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
+            <View style={styles.forgotRow}>
+              <Text style={styles.forgotHint}>
+                Forgot your password? Sign up again with a new invite code.
+              </Text>
+            </View>
+
+            {!!error && <Text style={styles.errorText}>{error}</Text>}
 
             <Button
-              label="Sign In"
+              label={busy ? 'Signing in…' : 'Sign In'}
               onPress={handleSignIn}
+              disabled={busy}
               style={styles.signInBtn}
             />
           </View>
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Text style={styles.footerText}>Don&apos;t have an account? </Text>
             <TouchableOpacity onPress={() => router.replace('/onboarding')}>
               <Text style={styles.footerLink}>Get started</Text>
             </TouchableOpacity>
@@ -135,6 +158,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.primaryMedium,
     fontWeight: '600',
+  },
+  forgotHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    textAlign: 'right',
+    lineHeight: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#c0392b',
+    marginBottom: 12,
   },
   signInBtn: {
     shadowColor: Colors.primary,

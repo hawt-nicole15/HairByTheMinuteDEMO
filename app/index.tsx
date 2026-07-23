@@ -4,20 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Button } from '@/components/ui/Button';
-import { useHairProfile } from '@/context/HairProfileContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LandingScreen() {
   const router = useRouter();
-  const { profile, isLoaded } = useHairProfile();
+  const { session, approved, loadingAuth } = useAuth();
 
   useEffect(() => {
-    if (isLoaded && profile.isOnboarded) {
+    if (!loadingAuth && session && approved) {
       router.replace('/(tabs)');
     }
-  }, [isLoaded, profile.isOnboarded]);
+  }, [loadingAuth, session, approved]);
 
-  // Show nothing while AsyncStorage is being read to prevent a flash
-  if (!isLoaded) return <View style={styles.container} />;
+  // Show nothing while the session is being restored to prevent a flash
+  if (loadingAuth) return <View style={styles.container} />;
 
   return (
     <SafeAreaView style={styles.container}>
