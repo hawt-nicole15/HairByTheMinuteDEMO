@@ -108,7 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // scope:'local' clears the local session without the /logout network call,
+    // which can hang and freeze the UI. Clear state ourselves regardless.
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      // ignore — local state is cleared below either way
+    }
+    setSession(null);
     setApproved(false);
     setWaiverAccepted(false);
   };
