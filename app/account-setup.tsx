@@ -55,7 +55,7 @@ export default function AccountSetupScreen() {
       await signUp(email.trim(), password);
       // 2. Persist the hair profile to the database
       await completeOnboarding({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() });
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/home');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not create your account. Please try again.';
       setSubmitError(/registered|already/i.test(msg) ? 'That email is already registered. Try signing in instead.' : msg);
