@@ -12,7 +12,7 @@ create table if not exists public.profiles (
   email                 text,
   first_name            text,
   last_name             text,
-  approved              boolean     not null default false,   -- flipped only by redeem_invite_code()
+  approved              boolean     not null default true,    -- open signup; invite flow left in place but unused
   questionnaire_answers jsonb       not null default '{}'::jsonb,
   hair_goals            text[]      not null default '{}',
   is_onboarded          boolean     not null default false,

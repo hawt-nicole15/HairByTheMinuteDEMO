@@ -1,12 +1,25 @@
 // Data-access layer for per-user tracking data, backed by Supabase/Postgres.
 // Maps the app's camelCase types to the snake_case DB columns so the screens
 // keep using the same shapes they used with AsyncStorage.
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/services/supabase';
 import { HairRoutine, DailyLog, TreatmentEntry, WashSchedule, GoalCheckIn } from '@/types';
 
 async function uid(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.user.id ?? null;
+}
+
+// ---- Routine staleness (set when the hair profile/goals change) ----
+const ROUTINE_STALE_KEY = 'hbtm_routine_stale';
+export async function markRoutineStale(): Promise<void> {
+  try { await AsyncStorage.setItem(ROUTINE_STALE_KEY, '1'); } catch { /* ignore */ }
+}
+export async function isRoutineStale(): Promise<boolean> {
+  try { return (await AsyncStorage.getItem(ROUTINE_STALE_KEY)) === '1'; } catch { return false; }
+}
+export async function clearRoutineStale(): Promise<void> {
+  try { await AsyncStorage.removeItem(ROUTINE_STALE_KEY); } catch { /* ignore */ }
 }
 
 // ---- Routine (written server-side by the edge function; read here) ----

@@ -212,19 +212,38 @@ export default function HomeScreen() {
     useCallback(() => {
       (async () => {
         try {
-          const [cached, ws, dl, th, pu] = await Promise.all([
+          const [stale, cached, ws, dl, th, pu] = await Promise.all([
+            tracking.isRoutineStale(),
             tracking.getRoutine(),
             tracking.getWashSchedule(),
             tracking.getDailyLog(TODAY),
             tracking.getTreatmentHistory(),
             tracking.getProductUsage(),
           ]);
-          if (cached) setRoutine(cached);
           if (ws) setWashSchedule(ws);
           setTreatmentHistory(th);
           setUsedProducts(new Set(pu));
           // getDailyLog is keyed to TODAY, so it's already day-scoped
           setDailyLog(dl ?? { date: TODAY, completedSteps: [], completedTreatments: [], washedToday: false });
+
+          if (stale) {
+            // Profile/goals changed on the My Hair tab — regenerate the routine.
+            await tracking.clearRoutineStale();
+            setRoutine(null);
+            setLoading(true);
+            setError(null);
+            try {
+              const result = await generateHairRoutine();
+              setRoutine(result);
+              track('routine_generated', { reason: 'profile_changed' });
+            } catch (e) {
+              setError(e instanceof Error ? e.message : 'Something went wrong.');
+            } finally {
+              setLoading(false);
+            }
+          } else if (cached) {
+            setRoutine(cached);
+          }
         } catch { /* ignore */ }
       })();
     }, [])

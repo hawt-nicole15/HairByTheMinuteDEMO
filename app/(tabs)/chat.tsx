@@ -150,7 +150,7 @@ export default function ChatScreen() {
 
         <View style={styles.inputBar}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
             value={input}
             onChangeText={setInput}
             placeholder="Ask Cassi anything about your hair…"

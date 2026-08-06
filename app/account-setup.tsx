@@ -19,13 +19,12 @@ import { useAuth } from '@/context/AuthContext';
 export default function AccountSetupScreen() {
   const router = useRouter();
   const { completeOnboarding } = useHairProfile();
-  const { signUp, redeemInvite } = useAuth();
+  const { signUp } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -41,7 +40,6 @@ export default function AccountSetupScreen() {
     else if (password.length < 8) next.password = 'Password must be at least 8 characters';
     if (!confirmPassword) next.confirmPassword = 'Please confirm your password';
     else if (password !== confirmPassword) next.confirmPassword = 'Passwords do not match';
-    if (!inviteCode.trim()) next.inviteCode = 'An invite code is required for the beta';
 
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -55,13 +53,7 @@ export default function AccountSetupScreen() {
     try {
       // 1. Create the account (a session is returned since email confirmation is off)
       await signUp(email.trim(), password);
-      // 2. Redeem the invite code -> approves the account
-      const ok = await redeemInvite(inviteCode);
-      if (!ok) {
-        setSubmitError('That invite code is invalid or already used. Check it and try again.');
-        return;
-      }
-      // 3. Persist the hair profile to the database
+      // 2. Persist the hair profile to the database
       await completeOnboarding({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() });
       router.replace('/(tabs)');
     } catch (e) {
@@ -149,16 +141,6 @@ export default function AccountSetupScreen() {
               placeholder="Repeat your password"
               isPassword
               error={errors.confirmPassword}
-            />
-
-            <Input
-              label="Invite Code"
-              value={inviteCode}
-              onChangeText={(t) => setInviteCode(t.toUpperCase())}
-              placeholder="HBTM-XXXXXX"
-              autoCapitalize="characters"
-              autoCorrect={false}
-              error={errors.inviteCode}
             />
 
             {!!submitError && <Text style={styles.submitError}>{submitError}</Text>}

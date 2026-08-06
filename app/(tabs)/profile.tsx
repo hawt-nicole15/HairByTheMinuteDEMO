@@ -296,7 +296,9 @@ export default function ProfileScreen() {
   }, [checkIns, currentRatings, hairGoals.length]);
 
   const handleAnswerSelect = (questionId: string, value: string) => {
+    if (questionnaireAnswers[questionId] === value) { setEditingQuestion(null); return; }
     setQuestionnaireAnswers({ ...questionnaireAnswers, [questionId]: value });
+    tracking.markRoutineStale(); // profile changed -> routine should regenerate
     track('profile_answer_changed', { question: questionId, answer: value });
     setEditingQuestion(null);
   };
@@ -308,6 +310,7 @@ export default function ProfileScreen() {
 
   const saveGoals = () => {
     setHairGoals(Array.from(pendingGoals));
+    tracking.markRoutineStale(); // goals changed -> routine should regenerate
     track('goals_updated', { goals_count: pendingGoals.size, goals: Array.from(pendingGoals).join(',') });
     setEditingGoals(false);
   };
@@ -610,7 +613,7 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <RNSafeAreaView style={[styles.modalSheet, { maxHeight: '90%' }]}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>How's your hair journey?</Text>
+            <Text style={styles.modalTitle}>How&apos;s your hair journey?</Text>
             <Text style={styles.modalSubtitle}>Rate each goal compared to last week</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
               {hairGoals.map((goal) => (
