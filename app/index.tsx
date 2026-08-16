@@ -13,7 +13,7 @@ export default function LandingScreen() {
 
   useEffect(() => {
     if (!loadingAuth && session && approved) {
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/chat');
     }
   }, [loadingAuth, session, approved]);
 

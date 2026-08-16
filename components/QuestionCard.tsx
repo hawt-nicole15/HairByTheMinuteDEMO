@@ -32,7 +32,13 @@ export function QuestionCard({ question, answers, onSelect }: QuestionCardProps)
       showsVerticalScrollIndicator={false}
     >
       {image ? (
-        <Image source={image} style={styles.questionImage} resizeMode="cover" />
+        <Image
+          source={image}
+          // styling_goal has labels along the bottom edge; render it at its
+          // natural aspect ratio so nothing is cropped.
+          style={question.id === 'styling_goal' ? styles.questionImageWide : styles.questionImage}
+          resizeMode="cover"
+        />
       ) : (
         <View style={styles.imagePlaceholder}>
           <Ionicons name="image-outline" size={36} color={Colors.textMuted} />
@@ -73,6 +79,12 @@ const styles = StyleSheet.create({
   questionImage: {
     width: '100%',
     height: 180,
+    borderRadius: 20,
+    marginBottom: 24,
+  },
+  questionImageWide: {
+    width: '100%',
+    aspectRatio: 2360 / 1100,
     borderRadius: 20,
     marginBottom: 24,
   },

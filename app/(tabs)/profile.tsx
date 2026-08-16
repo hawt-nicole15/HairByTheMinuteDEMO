@@ -6,10 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  SafeAreaView as RNSafeAreaView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
@@ -252,6 +251,7 @@ function RatingButton({
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile, clearProfile, setQuestionnaireAnswers, setHairGoals } = useHairProfile();
   const { signOut } = useAuth();
   const { accountInfo, questionnaireAnswers, hairGoals } = profile;
@@ -524,7 +524,7 @@ export default function ProfileScreen() {
       {/* Date Picker Modal */}
       <Modal visible={showDatePicker} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Last Wash Date</Text>
             <Text style={styles.modalSubtitle}>When did you last wash your hair?</Text>
@@ -536,14 +536,14 @@ export default function ProfileScreen() {
               }}
               onClose={() => setShowDatePicker(false)}
             />
-          </RNSafeAreaView>
+          </View>
         </View>
       </Modal>
 
       {/* Answer Edit Modal */}
       <Modal visible={!!editingQuestion} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{editingQuestion?.title}</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
@@ -569,14 +569,14 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.modalCancel} onPress={() => setEditingQuestion(null)}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
-          </RNSafeAreaView>
+          </View>
         </View>
       </Modal>
 
       {/* Goals Edit Modal */}
       <Modal visible={editingGoals} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Your Hair Goals</Text>
             <Text style={styles.modalSubtitle}>Select everything that applies</Text>
@@ -604,14 +604,14 @@ export default function ProfileScreen() {
             <TouchableOpacity style={[styles.saveBtn, pendingGoals.size === 0 && styles.saveBtnDisabled]} onPress={saveGoals} disabled={pendingGoals.size === 0}>
               <Text style={styles.saveBtnText}>Save Goals</Text>
             </TouchableOpacity>
-          </RNSafeAreaView>
+          </View>
         </View>
       </Modal>
 
       {/* Goals Check-in Modal */}
       <Modal visible={showCheckIn} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={[styles.modalSheet, { maxHeight: '90%' }]}>
+          <View style={[styles.modalSheet, { maxHeight: '90%', paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>How&apos;s your hair journey?</Text>
             <Text style={styles.modalSubtitle}>Rate each goal compared to last week</Text>
@@ -645,7 +645,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowCheckIn(false); setCurrentRatings({}); }}>
               <Text style={styles.modalCancelText}>Not now</Text>
             </TouchableOpacity>
-          </RNSafeAreaView>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>

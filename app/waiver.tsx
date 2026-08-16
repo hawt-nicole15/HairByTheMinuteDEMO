@@ -21,7 +21,7 @@ export default function WaiverScreen() {
     setError('');
     try {
       await acceptWaiver();
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/chat');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save your acceptance. Please try again.');
     } finally {

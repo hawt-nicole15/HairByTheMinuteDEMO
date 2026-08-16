@@ -108,7 +108,6 @@ function TreatmentCard({
         <TouchableOpacity
           style={[styles.markDoneBtn, isDone && styles.markDoneBtnDone]}
           onPress={onMarkDone}
-          disabled={isDone}
         >
           {isDone ? (
             <Ionicons name="checkmark" size={14} color={Colors.white} />
@@ -264,13 +263,19 @@ export default function HomeScreen() {
   };
 
   const markTreatmentDone = async (treatmentName: string) => {
-    if (dailyLog.completedTreatments.includes(treatmentName)) return;
-    const updated = { ...dailyLog, completedTreatments: [...dailyLog.completedTreatments, treatmentName] };
-    saveDailyLog(updated);
-    track('treatment_marked_done', { treatment: treatmentName });
+    const already = dailyLog.completedTreatments.includes(treatmentName);
+    const completedTreatments = already
+      ? dailyLog.completedTreatments.filter((t) => t !== treatmentName)
+      : [...dailyLog.completedTreatments, treatmentName];
+    saveDailyLog({ ...dailyLog, completedTreatments });
+    track('treatment_marked_done', { treatment: treatmentName, done: !already });
 
-    // Persist to history for Cassi context, then refresh from the source of truth
-    await tracking.recordTreatment(TODAY, treatmentName);
+    // Keep the treatment history (Cassi context) in sync, then refresh
+    if (already) {
+      await tracking.unrecordTreatment(TODAY, treatmentName);
+    } else {
+      await tracking.recordTreatment(TODAY, treatmentName);
+    }
     setTreatmentHistory(await tracking.getTreatmentHistory());
   };
 

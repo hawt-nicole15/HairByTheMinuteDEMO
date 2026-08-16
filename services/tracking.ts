@@ -87,6 +87,23 @@ export async function recordTreatment(date: string, name: string): Promise<void>
   }
 }
 
+// Removes a treatment from a given day's entry (undo a mistaken "mark done").
+export async function unrecordTreatment(date: string, name: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from('treatment_history')
+    .select('id, names')
+    .eq('treatment_date', date)
+    .limit(1)
+    .maybeSingle();
+  if (!existing) return;
+  const names = (existing.names ?? []).filter((n: string) => n !== name);
+  if (names.length === 0) {
+    await supabase.from('treatment_history').delete().eq('id', existing.id);
+  } else {
+    await supabase.from('treatment_history').update({ names }).eq('id', existing.id);
+  }
+}
+
 // ---- Wash schedule ----
 export async function getWashSchedule(): Promise<WashSchedule | null> {
   const { data } = await supabase

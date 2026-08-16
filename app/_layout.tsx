@@ -25,7 +25,7 @@ function useProtectedRoute() {
     } else if (authed && !waiverAccepted && inTabs) {
       router.replace('/waiver');
     } else if (authed && waiverAccepted && onWaiver) {
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/chat');
     }
   }, [session, approved, waiverAccepted, loadingAuth, segments]);
 }
