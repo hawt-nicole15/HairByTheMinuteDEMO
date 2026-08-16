@@ -34,10 +34,10 @@ export function QuestionCard({ question, answers, onSelect }: QuestionCardProps)
       {image ? (
         <Image
           source={image}
-          // styling_goal has labels along the bottom edge; render it at its
-          // natural aspect ratio so nothing is cropped.
-          style={question.id === 'styling_goal' ? styles.questionImageWide : styles.questionImage}
-          resizeMode="cover"
+          style={styles.questionImage}
+          // styling_goal has labels along the bottom edge; 'contain' shows the
+          // whole image (no crop) without zooming, unlike 'cover'.
+          resizeMode={question.id === 'styling_goal' ? 'contain' : 'cover'}
         />
       ) : (
         <View style={styles.imagePlaceholder}>
@@ -79,12 +79,6 @@ const styles = StyleSheet.create({
   questionImage: {
     width: '100%',
     height: 180,
-    borderRadius: 20,
-    marginBottom: 24,
-  },
-  questionImageWide: {
-    width: '100%',
-    aspectRatio: 2360 / 1100,
     borderRadius: 20,
     marginBottom: 24,
   },
