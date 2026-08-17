@@ -5,10 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
   Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
@@ -16,6 +15,7 @@ import { Colors } from '@/constants/colors';
 import { useHairProfile } from '@/context/HairProfileContext';
 import { useAuth } from '@/context/AuthContext';
 import { ExternalLink } from '@/components/ExternalLink';
+import { BottomSheet } from '@/components/BottomSheet';
 import * as tracking from '@/services/tracking';
 import { track } from '@/services/analytics';
 import { QUESTIONS } from '@/constants/questions';
@@ -251,7 +251,6 @@ function RatingButton({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { profile, clearProfile, setQuestionnaireAnswers, setHairGoals } = useHairProfile();
   const { signOut } = useAuth();
   const { accountInfo, questionnaireAnswers, hairGoals } = profile;
@@ -521,30 +520,22 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* Date Picker Modal */}
-      <Modal visible={showDatePicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Last Wash Date</Text>
-            <Text style={styles.modalSubtitle}>When did you last wash your hair?</Text>
-            <CalendarPicker
-              value={washSchedule?.lastWashDate ?? toDateString(new Date())}
-              onConfirm={(date) => {
-                saveWashSchedule({ lastWashDate: date, frequencyDays: washSchedule?.frequencyDays ?? 7 });
-                setShowDatePicker(false);
-              }}
-              onClose={() => setShowDatePicker(false)}
-            />
-          </View>
-        </View>
-      </Modal>
+      {/* Date Picker Sheet */}
+      <BottomSheet visible={showDatePicker} onClose={() => setShowDatePicker(false)}>
+        <Text style={styles.modalTitle}>Last Wash Date</Text>
+        <Text style={styles.modalSubtitle}>When did you last wash your hair?</Text>
+        <CalendarPicker
+          value={washSchedule?.lastWashDate ?? toDateString(new Date())}
+          onConfirm={(date) => {
+            saveWashSchedule({ lastWashDate: date, frequencyDays: washSchedule?.frequencyDays ?? 7 });
+            setShowDatePicker(false);
+          }}
+          onClose={() => setShowDatePicker(false)}
+        />
+      </BottomSheet>
 
-      {/* Answer Edit Modal */}
-      <Modal visible={!!editingQuestion} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
-            <View style={styles.modalHandle} />
+      {/* Answer Edit Sheet */}
+      <BottomSheet visible={!!editingQuestion} onClose={() => setEditingQuestion(null)}>
             <Text style={styles.modalTitle}>{editingQuestion?.title}</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
               {editingQuestion?.options.map((opt) => {
@@ -569,15 +560,10 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.modalCancel} onPress={() => setEditingQuestion(null)}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheet>
 
-      {/* Goals Edit Modal */}
-      <Modal visible={editingGoals} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 12 }]}>
-            <View style={styles.modalHandle} />
+      {/* Goals Edit Sheet */}
+      <BottomSheet visible={editingGoals} onClose={() => setEditingGoals(false)}>
             <Text style={styles.modalTitle}>Your Hair Goals</Text>
             <Text style={styles.modalSubtitle}>Select everything that applies</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
@@ -604,15 +590,10 @@ export default function ProfileScreen() {
             <TouchableOpacity style={[styles.saveBtn, pendingGoals.size === 0 && styles.saveBtnDisabled]} onPress={saveGoals} disabled={pendingGoals.size === 0}>
               <Text style={styles.saveBtnText}>Save Goals</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheet>
 
-      {/* Goals Check-in Modal */}
-      <Modal visible={showCheckIn} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { maxHeight: '90%', paddingBottom: insets.bottom + 12 }]}>
-            <View style={styles.modalHandle} />
+      {/* Goals Check-in Sheet */}
+      <BottomSheet visible={showCheckIn} maxHeightPct={0.9} onClose={() => { setShowCheckIn(false); setCurrentRatings({}); }}>
             <Text style={styles.modalTitle}>How&apos;s your hair journey?</Text>
             <Text style={styles.modalSubtitle}>Rate each goal compared to last week</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
@@ -645,9 +626,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowCheckIn(false); setCurrentRatings({}); }}>
               <Text style={styles.modalCancelText}>Not now</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
