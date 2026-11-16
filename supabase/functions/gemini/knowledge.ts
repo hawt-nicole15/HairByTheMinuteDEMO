@@ -1,4 +1,11 @@
-import { HairProfileData } from '@/types';
+// Ported from knowledge/hairKnowledge.ts for the Deno edge runtime.
+// Keep in sync with the app copy if the knowledge base changes.
+export interface HairProfileData {
+  questionnaireAnswers: Record<string, string>;
+  hairGoals: string[];
+  isOnboarded?: boolean;
+  accountInfo?: { firstName?: string; lastName?: string; email?: string };
+}
 
 // Foundational method knowledge injected for every user
 const LOC_LCO_KNOWLEDGE = `LOC/LCO METHOD:
@@ -11,6 +18,20 @@ LCO method is more effective with coarser hair or high textured hair such as typ
 High porosity hair uses the LOC method which can be for any hair type
 Low porosity hair uses the LCO method
 If your hair is chemically treated, colored, or heat-damaged, it becomes high porosity regardless of any hair texture. Damage creates holes and gaps in the hair cuticle. Water enters easily but evaporates almost instantly.`;
+
+// Universal do-not-recommend guidance for type 3 and type 4 natural hair.
+const PRODUCTS_TO_AVOID = `PRODUCTS & INGREDIENTS TO AVOID (applies to all type 3 and type 4 natural hair):
+
+Brands / product lines to avoid recommending:
+- Cantu
+
+Ingredients to avoid when recommending any product (never recommend a product containing these):
+- Sulfates (e.g. sodium lauryl sulfate / sodium laureth sulfate): too stripping for natural curly and kinky type 3 and type 4 hair. Only acceptable for a special, occasional need such as clarifying heavy product buildup.
+- Parabens
+- Formaldehyde and formaldehyde-releasing preservatives: Quaternium-15, DMDM hydantoin, Imidazolidinyl urea, Diazolidinyl urea
+- Drying alcohols: Alcohol denat., SD Alcohol 40, Ethanol, Isopropyl alcohol, Propanol, Isopropanol
+
+When recommending products: do NOT recommend the brands listed above, and only recommend products that are free of the ingredients listed above.`;
 
 const POROSITY_KNOWLEDGE: Record<string, string> = {
   high_porosity: `HIGH POROSITY HAIR:
@@ -1522,6 +1543,7 @@ export function buildHairKnowledge(profile: HairProfileData): string {
   const sections: string[] = [
     'HAIR CARE KNOWLEDGE BASE (relevant to this user):',
     LOC_LCO_KNOWLEDGE,
+    PRODUCTS_TO_AVOID,
   ];
 
   if (POROSITY_KNOWLEDGE[questionnaireAnswers.porosity]) {

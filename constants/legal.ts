@@ -18,7 +18,7 @@ export interface LegalDoc {
 export const TermsOfService: LegalDoc = {
   title: 'Terms of Service',
   subtitle: 'Hair by the Minute (HBTM)',
-  effectiveDate: 'July 10, 2026',
+  effectiveDate: 'July 22, 2026',
   intro:
     'These Terms of Service ("Terms") govern your access to and use of the Hair by the Minute beta website, application, and the Hair IQ Interface (collectively, the "Service"), operated by Hair by the Minute ("HBTM," "we," "us," or "our"). By creating an account, taking the quiz, or otherwise using the Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.',
   sections: [
@@ -260,7 +260,7 @@ export const TermsOfService: LegalDoc = {
 export const PrivacyPolicy: LegalDoc = {
   title: 'Privacy Policy',
   subtitle: 'Hair by the Minute (HBTM)',
-  effectiveDate: 'July 10, 2026',
+  effectiveDate: 'July 22, 2026',
   intro:
     'This Privacy Policy explains how Hair by the Minute ("HBTM," "we," "us," or "our") collects, uses, stores, and shares information when you use our beta website and the Hair IQ Interface (collectively, the "Service"). Please read this Policy carefully. By using the Service, you agree to the practices described here.',
   sections: [
@@ -300,7 +300,7 @@ export const PrivacyPolicy: LegalDoc = {
         },
         {
           type: 'paragraph',
-          text: 'How this data is stored: Hair & Scalp Data is stored in our secure cloud infrastructure, encrypted in transit (e.g., via TLS/HTTPS) and at rest, and access is restricted to authorized personnel who need it to operate or improve the Service. It is stored alongside your account profile and is retained according to the timelines in Section 8 below.',
+          text: 'How this data is stored: Hair & Scalp Data is stored using Supabase, our secure cloud database and authentication provider, encrypted in transit (e.g., via TLS/HTTPS) and at rest, with row-level access controls so each account can only access its own data. It is stored alongside your account profile and is retained according to the timelines in Section 8 below.',
         },
         {
           type: 'paragraph',
@@ -333,7 +333,7 @@ export const PrivacyPolicy: LegalDoc = {
       blocks: [
         {
           type: 'paragraph',
-          text: 'The Hair IQ Interface uses artificial intelligence to analyze your quiz responses and generate your personalized profile and recommendations. This processing may be performed using third-party AI service providers (for example, providers such as Anthropic and Google Cloud/Vertex AI, or similar AI infrastructure providers we may use from time to time). When your data is processed by a third-party AI provider:',
+          text: 'The Hair IQ Interface uses artificial intelligence to analyze your quiz responses, generate your personalized profile and routine, and power the in-app chat assistant. This processing is performed using a third-party AI service — currently Google\'s Gemini API (provided by Google). When your data is processed by this provider:',
         },
         {
           type: 'bullets',
@@ -359,8 +359,9 @@ export const PrivacyPolicy: LegalDoc = {
         {
           type: 'bullets',
           items: [
-            'AI service providers — to generate hair profiles and recommendations (see Section 5).',
-            'Analytics providers (e.g., tools like Google Analytics or similar) — to understand usage and improve the Service during beta testing.',
+            'Cloud infrastructure — Supabase, which provides the database, authentication, and hosting where your account, hair profile, and tracking data are stored.',
+            'AI service provider — Google (Gemini API), to generate hair profiles, routines, and chat responses (see Section 5).',
+            'Analytics provider — PostHog, to understand usage and improve the Service during beta testing.',
             'Email/communications platforms (e.g., providers used to send account, support, or product update emails) — to communicate with you.',
             'Payment processors — if and when the Service introduces any paid features in the future, a third-party payment processor would handle payment information; we do not currently collect payment information as part of this free beta.',
             'Legal/safety disclosures — if required to comply with a law, regulation, legal process, or governmental request, or to protect the rights, property, or safety of HBTM, our users, or others.',

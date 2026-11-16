@@ -5,25 +5,25 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
-  SafeAreaView as RNSafeAreaView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Colors } from '@/constants/colors';
 import { useHairProfile } from '@/context/HairProfileContext';
+import { useAuth } from '@/context/AuthContext';
+import { ExternalLink } from '@/components/ExternalLink';
+import { BottomSheet } from '@/components/BottomSheet';
+import * as tracking from '@/services/tracking';
 import { track } from '@/services/analytics';
 import { QUESTIONS } from '@/constants/questions';
 import { Question, WashSchedule, GoalCheckIn } from '@/types';
 
-const WASH_SCHEDULE_KEY = 'hbtm_wash_schedule';
-const CHECK_INS_KEY = 'hbtm_goal_checkins';
 const CHECKIN_INTERVAL_DAYS = 7;
 const FREQUENCY_OPTIONS = [5, 7, 10, 14];
+const FEEDBACK_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfihljNcYgTndO5AkmDV-lkRNU4R8kHi3B4Qp38aBtOFWMHxA/viewform';
 
 const ANSWER_DISPLAY: Record<string, Record<string, string>> = {
   porosity: { high_porosity: 'High porosity', medium_porosity: 'Medium porosity', low_porosity: 'Low porosity' },
@@ -252,6 +252,7 @@ function RatingButton({
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, clearProfile, setQuestionnaireAnswers, setHairGoals } = useHairProfile();
+  const { signOut } = useAuth();
   const { accountInfo, questionnaireAnswers, hairGoals } = profile;
 
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -267,17 +268,16 @@ export default function ProfileScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const ws = await AsyncStorage.getItem(WASH_SCHEDULE_KEY);
-        if (ws) setWashSchedule(JSON.parse(ws));
-        const ci = await AsyncStorage.getItem(CHECK_INS_KEY);
-        if (ci) setCheckIns(JSON.parse(ci));
+        const ws = await tracking.getWashSchedule();
+        if (ws) setWashSchedule(ws);
+        setCheckIns(await tracking.getGoalCheckins());
       } catch { /* ignore */ }
     })();
   }, []);
 
   const saveWashSchedule = useCallback(async (schedule: WashSchedule) => {
     setWashSchedule(schedule);
-    await AsyncStorage.setItem(WASH_SCHEDULE_KEY, JSON.stringify(schedule));
+    await tracking.saveWashSchedule(schedule);
     scheduleWashReminder(getNextWashDate(schedule));
     track('wash_schedule_set', { frequency_days: schedule.frequencyDays, last_wash_date: schedule.lastWashDate });
   }, []);
@@ -286,7 +286,7 @@ export default function ProfileScreen() {
     const entry: GoalCheckIn = { date: toDateString(new Date()), ratings: currentRatings };
     const updated = [...checkIns, entry];
     setCheckIns(updated);
-    await AsyncStorage.setItem(CHECK_INS_KEY, JSON.stringify(updated));
+    await tracking.addGoalCheckin(entry);
     const improving = Object.values(currentRatings).filter((r) => r === 1).length;
     const worsening = Object.values(currentRatings).filter((r) => r === -1).length;
     track('checkin_completed', { goals_count: hairGoals.length, improving, worsening });
@@ -295,7 +295,9 @@ export default function ProfileScreen() {
   }, [checkIns, currentRatings, hairGoals.length]);
 
   const handleAnswerSelect = (questionId: string, value: string) => {
+    if (questionnaireAnswers[questionId] === value) { setEditingQuestion(null); return; }
     setQuestionnaireAnswers({ ...questionnaireAnswers, [questionId]: value });
+    tracking.markRoutineStale(); // profile changed -> routine should regenerate
     track('profile_answer_changed', { question: questionId, answer: value });
     setEditingQuestion(null);
   };
@@ -307,6 +309,7 @@ export default function ProfileScreen() {
 
   const saveGoals = () => {
     setHairGoals(Array.from(pendingGoals));
+    tracking.markRoutineStale(); // goals changed -> routine should regenerate
     track('goals_updated', { goals_count: pendingGoals.size, goals: Array.from(pendingGoals).join(',') });
     setEditingGoals(false);
   };
@@ -316,7 +319,8 @@ export default function ProfileScreen() {
   const checkInDue = daysSinceCi >= CHECKIN_INTERVAL_DAYS;
   const recentCheckIns = checkIns.slice(-3).reverse();
 
-  const handleReset = async () => {
+  const handleLogout = async () => {
+    await signOut();
     await clearProfile();
     router.replace('/');
   };
@@ -495,9 +499,9 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Dev reset */}
-        <TouchableOpacity style={styles.devReset} onPress={handleReset}>
-          <Text style={styles.devResetText}>DEV: Reset & restart onboarding</Text>
+        {/* Log out */}
+        <TouchableOpacity style={styles.devReset} onPress={handleLogout}>
+          <Text style={styles.devResetText}>Log out</Text>
         </TouchableOpacity>
 
         {/* Legal footer */}
@@ -509,33 +513,29 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={() => router.push('/legal?doc=privacy')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.legalLink}>Privacy Policy</Text>
           </TouchableOpacity>
+          <Text style={styles.legalDot}>·</Text>
+          <ExternalLink href={FEEDBACK_URL}>
+            <Text style={styles.legalLink}>Feedback</Text>
+          </ExternalLink>
         </View>
       </ScrollView>
 
-      {/* Date Picker Modal */}
-      <Modal visible={showDatePicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Last Wash Date</Text>
-            <Text style={styles.modalSubtitle}>When did you last wash your hair?</Text>
-            <CalendarPicker
-              value={washSchedule?.lastWashDate ?? toDateString(new Date())}
-              onConfirm={(date) => {
-                saveWashSchedule({ lastWashDate: date, frequencyDays: washSchedule?.frequencyDays ?? 7 });
-                setShowDatePicker(false);
-              }}
-              onClose={() => setShowDatePicker(false)}
-            />
-          </RNSafeAreaView>
-        </View>
-      </Modal>
+      {/* Date Picker Sheet */}
+      <BottomSheet visible={showDatePicker} onClose={() => setShowDatePicker(false)}>
+        <Text style={styles.modalTitle}>Last Wash Date</Text>
+        <Text style={styles.modalSubtitle}>When did you last wash your hair?</Text>
+        <CalendarPicker
+          value={washSchedule?.lastWashDate ?? toDateString(new Date())}
+          onConfirm={(date) => {
+            saveWashSchedule({ lastWashDate: date, frequencyDays: washSchedule?.frequencyDays ?? 7 });
+            setShowDatePicker(false);
+          }}
+          onClose={() => setShowDatePicker(false)}
+        />
+      </BottomSheet>
 
-      {/* Answer Edit Modal */}
-      <Modal visible={!!editingQuestion} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
+      {/* Answer Edit Sheet */}
+      <BottomSheet visible={!!editingQuestion} onClose={() => setEditingQuestion(null)}>
             <Text style={styles.modalTitle}>{editingQuestion?.title}</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
               {editingQuestion?.options.map((opt) => {
@@ -560,15 +560,10 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.modalCancel} onPress={() => setEditingQuestion(null)}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
-          </RNSafeAreaView>
-        </View>
-      </Modal>
+      </BottomSheet>
 
-      {/* Goals Edit Modal */}
-      <Modal visible={editingGoals} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
+      {/* Goals Edit Sheet */}
+      <BottomSheet visible={editingGoals} onClose={() => setEditingGoals(false)}>
             <Text style={styles.modalTitle}>Your Hair Goals</Text>
             <Text style={styles.modalSubtitle}>Select everything that applies</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
@@ -595,16 +590,11 @@ export default function ProfileScreen() {
             <TouchableOpacity style={[styles.saveBtn, pendingGoals.size === 0 && styles.saveBtnDisabled]} onPress={saveGoals} disabled={pendingGoals.size === 0}>
               <Text style={styles.saveBtnText}>Save Goals</Text>
             </TouchableOpacity>
-          </RNSafeAreaView>
-        </View>
-      </Modal>
+      </BottomSheet>
 
-      {/* Goals Check-in Modal */}
-      <Modal visible={showCheckIn} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <RNSafeAreaView style={[styles.modalSheet, { maxHeight: '90%' }]}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>How's your hair journey?</Text>
+      {/* Goals Check-in Sheet */}
+      <BottomSheet visible={showCheckIn} maxHeightPct={0.9} onClose={() => { setShowCheckIn(false); setCurrentRatings({}); }}>
+            <Text style={styles.modalTitle}>How&apos;s your hair journey?</Text>
             <Text style={styles.modalSubtitle}>Rate each goal compared to last week</Text>
             <ScrollView style={{ marginTop: 16 }} showsVerticalScrollIndicator={false}>
               {hairGoals.map((goal) => (
@@ -636,9 +626,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowCheckIn(false); setCurrentRatings({}); }}>
               <Text style={styles.modalCancelText}>Not now</Text>
             </TouchableOpacity>
-          </RNSafeAreaView>
-        </View>
-      </Modal>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -787,7 +775,7 @@ const styles = StyleSheet.create({
   },
   devResetText: { color: Colors.error, fontSize: 12, fontWeight: '600' },
 
-  legalFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 },
+  legalFooter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 },
   legalLink: { fontSize: 12, color: Colors.primaryMedium, fontWeight: '600' },
   legalDot: { fontSize: 12, color: Colors.primaryLight },
 });

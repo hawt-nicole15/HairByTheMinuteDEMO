@@ -13,18 +13,9 @@ import {
 import Markdown from 'react-native-markdown-display';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
-import { useHairProfile } from '@/context/HairProfileContext';
-import { sendChatMessage, buildTrackingContext, ChatMessage, NIA_OPENER } from '@/services/gemini';
+import { sendChatMessage, ChatMessage, NIA_OPENER } from '@/services/gemini';
 import { track } from '@/services/analytics';
-import { DailyLog, TreatmentEntry } from '@/types';
-
-const DAILY_LOG_KEY = 'hbtm_daily_log';
-const TREATMENT_HISTORY_KEY = 'hbtm_treatment_history';
-const PRODUCT_USAGE_KEY = 'hbtm_product_usage';
-const TODAY = new Date().toISOString().split('T')[0];
 
 const SUGGESTED_PROMPTS = [
   'What products work best for my hair?',
@@ -72,35 +63,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 }
 
 export default function ChatScreen() {
-  const { profile } = useHairProfile();
   const [messages, setMessages] = useState<ChatMessage[]>([NIA_INTRO]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList>(null);
-
-  const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
-  const [treatmentHistory, setTreatmentHistory] = useState<TreatmentEntry[]>([]);
-  const [usedProducts, setUsedProducts] = useState<string[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        try {
-          const [dl, th, pu] = await Promise.all([
-            AsyncStorage.getItem(DAILY_LOG_KEY),
-            AsyncStorage.getItem(TREATMENT_HISTORY_KEY),
-            AsyncStorage.getItem(PRODUCT_USAGE_KEY),
-          ]);
-          if (th) setTreatmentHistory(JSON.parse(th));
-          if (pu) setUsedProducts(JSON.parse(pu));
-          if (dl) {
-            const parsed: DailyLog = JSON.parse(dl);
-            setDailyLog(parsed.date === TODAY ? parsed : null);
-          }
-        } catch { /* ignore */ }
-      })();
-    }, [])
-  );
 
   const history = messages.filter((m) => m.id !== 'intro');
 
@@ -115,8 +81,7 @@ export default function ChatScreen() {
 
       try {
         track('chat_message_sent', { message_index: history.length });
-        const tracking = buildTrackingContext(dailyLog, treatmentHistory, usedProducts);
-        const reply = await sendChatMessage(history, text.trim(), profile, tracking);
+        const reply = await sendChatMessage(history, text.trim());
         const niaMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'model', text: reply };
         setMessages((prev) => [...prev, niaMsg]);
       } catch (e) {
@@ -131,7 +96,7 @@ export default function ChatScreen() {
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       }
     },
-    [sending, history, profile, dailyLog, treatmentHistory, usedProducts],
+    [sending, history],
   );
 
   const showSuggestions = messages.length === 1;
@@ -179,9 +144,13 @@ export default function ChatScreen() {
           }
         />
 
+        <Text style={styles.disclaimer}>
+          Cassi is AI and can make mistakes — not medical advice.
+        </Text>
+
         <View style={styles.inputBar}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
             value={input}
             onChangeText={setInput}
             placeholder="Ask Cassi anything about your hair…"
@@ -333,6 +302,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     flex: 1,
+  },
+
+  /* AI disclaimer */
+  disclaimer: {
+    fontSize: 10.5,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    backgroundColor: Colors.white,
   },
 
   /* Input bar */

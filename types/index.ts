@@ -37,7 +37,7 @@ export interface HairProfileContextType {
   isLoaded: boolean;
   setQuestionnaireAnswers: (answers: UserAnswers) => void;
   setHairGoals: (goals: string[]) => void;
-  completeOnboarding: (accountInfo: AccountInfo) => void;
+  completeOnboarding: (accountInfo: AccountInfo) => Promise<void>;
   clearProfile: () => Promise<void>;
 }
 

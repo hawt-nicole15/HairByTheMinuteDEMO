@@ -4,20 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Button } from '@/components/ui/Button';
-import { useHairProfile } from '@/context/HairProfileContext';
+import { BrandMark } from '@/components/BrandMark';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LandingScreen() {
   const router = useRouter();
-  const { profile, isLoaded } = useHairProfile();
+  const { session, approved, loadingAuth } = useAuth();
 
   useEffect(() => {
-    if (isLoaded && profile.isOnboarded) {
-      router.replace('/(tabs)');
+    if (!loadingAuth && session && approved) {
+      router.replace('/(tabs)/chat');
     }
-  }, [isLoaded, profile.isOnboarded]);
+  }, [loadingAuth, session, approved]);
 
-  // Show nothing while AsyncStorage is being read to prevent a flash
-  if (!isLoaded) return <View style={styles.container} />;
+  // Show nothing while the session is being restored to prevent a flash
+  if (loadingAuth) return <View style={styles.container} />;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -29,8 +30,8 @@ export default function LandingScreen() {
       {/* Main content */}
       <View style={styles.content}>
         {/* Brand mark */}
-        <View style={styles.brandMark}>
-          <Text style={styles.brandMarkText}>HBTM</Text>
+        <View style={styles.brandMarkWrap}>
+          <BrandMark size={190} />
         </View>
 
         {/* App name */}
@@ -126,27 +127,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
-  brandMark: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(255,255,255,0.13)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  brandMarkWrap: {
     marginBottom: 32,
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  brandMarkText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.sand,
-    letterSpacing: 4,
   },
   appNameLight: {
     fontSize: 22,

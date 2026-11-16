@@ -14,17 +14,20 @@ import { BackButton } from '@/components/ui/BackButton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useHairProfile } from '@/context/HairProfileContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AccountSetupScreen() {
   const router = useRouter();
   const { completeOnboarding } = useHairProfile();
-  // TODO: remove before pushing — pre-filled for dev testing
-  const [firstName, setFirstName] = useState('Test');
-  const [lastName, setLastName] = useState('User');
-  const [email, setEmail] = useState('test@hbtm.dev');
-  const [password, setPassword] = useState('password123');
-  const [confirmPassword, setConfirmPassword] = useState('password123');
+  const { signUp } = useAuth();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
@@ -42,10 +45,23 @@ export default function AccountSetupScreen() {
     return Object.keys(next).length === 0;
   };
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
+    if (busy) return;
+    setSubmitError('');
     if (!validate()) return;
-    completeOnboarding({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() });
-    router.replace('/(tabs)');
+    setBusy(true);
+    try {
+      // 1. Create the account (a session is returned since email confirmation is off)
+      await signUp(email.trim(), password);
+      // 2. Persist the hair profile to the database
+      await completeOnboarding({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() });
+      router.replace('/(tabs)/chat');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not create your account. Please try again.';
+      setSubmitError(/registered|already/i.test(msg) ? 'That email is already registered. Try signing in instead.' : msg);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -127,9 +143,12 @@ export default function AccountSetupScreen() {
               error={errors.confirmPassword}
             />
 
+            {!!submitError && <Text style={styles.submitError}>{submitError}</Text>}
+
             <Button
-              label="Create Account"
+              label={busy ? 'Creating account…' : 'Create Account'}
               onPress={handleCreateAccount}
+              disabled={busy}
               style={styles.createBtn}
             />
           </View>
@@ -199,6 +218,11 @@ const styles = StyleSheet.create({
   },
   nameField: {
     flex: 1,
+  },
+  submitError: {
+    fontSize: 13,
+    color: '#c0392b',
+    marginBottom: 12,
   },
   createBtn: {
     marginTop: 8,

@@ -6,7 +6,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInputProps,
+  Platform,
 } from 'react-native';
+
+// On web, react-native-web renders TextInput as an <input> that shows the
+// browser's default blue focus outline, which overflows the styled container.
+// We indicate focus on the container instead, so remove that outline.
+const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null;
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 
@@ -31,7 +37,7 @@ export function Input({ label, error, isPassword = false, style, ...props }: Inp
         ]}
       >
         <TextInput
-          style={[styles.input, style]}
+          style={[styles.input, webNoOutline, style]}
           secureTextEntry={isPassword && !visible}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}

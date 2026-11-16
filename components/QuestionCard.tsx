@@ -32,7 +32,13 @@ export function QuestionCard({ question, answers, onSelect }: QuestionCardProps)
       showsVerticalScrollIndicator={false}
     >
       {image ? (
-        <Image source={image} style={styles.questionImage} resizeMode="cover" />
+        <Image
+          source={image}
+          style={styles.questionImage}
+          // styling_goal has labels along the bottom edge; 'contain' shows the
+          // whole image (no crop) without zooming, unlike 'cover'.
+          resizeMode={question.id === 'styling_goal' ? 'contain' : 'cover'}
+        />
       ) : (
         <View style={styles.imagePlaceholder}>
           <Ionicons name="image-outline" size={36} color={Colors.textMuted} />
